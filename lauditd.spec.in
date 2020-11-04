@@ -1,0 +1,50 @@
+# lauditd specfile
+
+Name: @PACKAGE@
+Version: @VERSION@
+
+Vendor: Stanford Research Computing Center
+Prefix: %{_prefix}
+
+Release: @LAUDITD_RELEASE@%{?dist}
+
+Summary: lauditd - Lustre Changelogs Daemon
+License: GPLv3
+Group: Applications/System
+Source0: @PACKAGE@-%{version}.tar.gz
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+%description
+lauditd is a daemon that listens to Lustre Changelogs and write them to a FIFO.
+
+Generated using options: @ac_configure_args@
+
+%prep
+%setup -q -n @PACKAGE@-%{version}
+
+%build
+./configure @ac_configure_args@ %{?configure_flags:configure_flags} \
+        --sysconfdir=%{_sysconfdir} \
+        --mandir=%{_mandir} \
+        --libdir=%{_libdir} \
+        --includedir=%{_includedir} \
+        --prefix=%{_prefix}
+        
+make
+
+%install
+rm -rf $RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT
+make install DESTDIR=$RPM_BUILD_ROOT
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%files
+%{_sbindir}/*
+
+%changelog
+
+%changelog
+* Wed Nov  4 2020 Stephane Thiell <sthiell@stanford.edu> 0.1
+- Initial import

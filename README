@@ -1,0 +1,42 @@
+lauditd
+-------
+
+Lustre Changelog Daemon feeding a named pipe (FIFO).
+
+
+Installation
+------------
+
+Building lcap is relatively straightforward:
+
+  $ sh ./autogen.sh
+  $ ./configure
+  $ make
+
+The "rpms" target allows to build RPM package.
+
+
+Running lauditd
+---------------
+
+lauditd doesn't need any configuration file as it takes all its parameters from
+command line. One lauditd daemon should be used per Lustre MDT. You will need
+to set up a Changelog reader ID dedicated to lauditd. On the MDS, run:
+
+  $ lctl --device fsname-MDT0002 changelog_register
+  fsname-MDT0002: Registered changelog userid 'cl2'
+
+Example of invocation with FIFO `/var/run/lauditd/fsname-MDT0002.changelogs`:
+
+  $ lauditd -u cl2 -f /var/run/lauditd/fsname-MDT0002.changelogs -b 1000 fsname-MDT0002
+
+You can test with:
+
+  $ cat /var/run/lauditd/fsname-MDT0002.changelogs
+
+
+Author
+------
+Stephane Thiell - Stanford Research Computing Center
+
+Please contribute by submitting a Pull Request on GitHub.
