@@ -7,7 +7,7 @@ Lustre Changelog Daemon feeding a named pipe (FIFO).
 Installation
 ------------
 
-Building lcap is relatively straightforward:
+Building lauditd is relatively straightforward:
 
   $ sh ./autogen.sh
   $ ./configure

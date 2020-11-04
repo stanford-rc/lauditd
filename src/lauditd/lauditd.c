@@ -97,7 +97,6 @@ static int lauditd_writerec(int wfd, const char *device, struct changelog_rec *r
         const char *jobid = (const char *)changelog_rec_jobid(rec);
         if (*jobid && dprintf(wfd, " j=%s", jobid) < 0)
                 goto eof;
-            
     }
 
     if (rec->cr_flags & CLFE_NID) {
@@ -151,7 +150,6 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
         fprintf(stderr, "lauditd: llapi_changelog_start rc=%d\n", rc);
         goto exit_enqueue;
     }
-    //fprintf(stderr, "llapi_changelog_start: success start at %lld\n", *recpos);
 
     rc = llapi_changelog_set_xflags(ctx, CHANGELOG_EXTRA_FLAG_UIDGID |
                                          CHANGELOG_EXTRA_FLAG_NID |
