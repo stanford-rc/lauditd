@@ -26,13 +26,13 @@ to set up a Changelog reader ID dedicated to lauditd. On the MDS, run:
   $ lctl --device fsname-MDT0002 changelog_register
   fsname-MDT0002: Registered changelog userid 'cl2'
 
-Example of invocation with FIFO `/var/run/lauditd/fsname-MDT0002.changelogs`:
+Example of invocation with FIFO `/run/lauditd/fsname-MDT0002.changelogs`:
 
-  $ lauditd -u cl2 -f /var/run/lauditd/fsname-MDT0002.changelogs -b 1000 fsname-MDT0002
+  $ lauditd -u cl2 -f /run/lauditd/fsname-MDT0002.changelogs -b 1000 fsname-MDT0002
 
 You can test with:
 
-  $ cat /var/run/lauditd/fsname-MDT0002.changelogs
+  $ cat /run/lauditd/fsname-MDT0002.changelogs
 
 
 Author
