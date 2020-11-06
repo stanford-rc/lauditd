@@ -36,12 +36,20 @@ make
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig
+install -m 644 systemd/lauditd $RPM_BUILD_ROOT/%{_sysconfdir}/sysconfig/lauditd
+mkdir -p $RPM_BUILD_ROOT/%{_unitdir}
+install -m 444 systemd/lauditd@.service $RPM_BUILD_ROOT/%{_unitdir}/lauditd@.service
+mkdir -p $RPM_BUILD_ROOT/%{_localstatedir}/run/lauditd
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %{_sbindir}/*
+%config(noreplace) %{_sysconfdir}/sysconfig/lauditd
+%{_unitdir}/lauditd@.service
+%dir %{_localstatedir}/run/lauditd
 
 %changelog
 

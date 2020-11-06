@@ -26,4 +26,4 @@ srpm: lauditd.spec dist
 		-ts $(distdir).tar.gz \
 	&& echo "src RPM successfully generated in $(rpm_dir)/SRPMS"
 
-EXTRA_DIST= lauditd.spec lauditd.spec.in
+EXTRA_DIST= lauditd.spec lauditd.spec.in systemd/lauditd systemd/lauditd@.service

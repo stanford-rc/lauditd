@@ -1,0 +1,9 @@
+[Unit]
+Description=Lustre Audit Daemon for %i
+
+[Service]
+Environment="LAUDITD_CONSUMERID=cl1"
+Environment="LAUDITD_BATCHSIZE=1000"
+EnvironmentFile=-/etc/sysconfig/lauditd
+EnvironmentFile=-/etc/sysconfig/lauditd.%i
+ExecStart=/usr/sbin/lauditd -u $LAUDITD_CONSUMERID -f /var/run/lauditd/%i.changelogs -b LAUDITD_BATCHSIZE %i

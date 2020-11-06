@@ -1,0 +1,7 @@
+# Configuration file for lauditd@.service
+
+# Lustre changelogs consumer ID (as returned by lctl changelog_register)
+LAUDITD_CONSUMERID=cl2
+
+# Max number of processed changelog entries before lauditd will clear them
+LAUDITD_BATCHSIZE=1000

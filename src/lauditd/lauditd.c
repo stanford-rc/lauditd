@@ -246,9 +246,6 @@ int main(int ac, char **av)
 
     mdtname = av[0];
 
-    fprintf(stderr, "lauditd: will write changelogs from MDT %s to FIFO %s\n",
-                    mdtname, fifopath);
-
     /* Initialize FIFO */
     if ((mkfifo(fifopath, 0644) < 0) && (errno != EEXIST)) {
         rc = -errno;
@@ -273,6 +270,9 @@ int main(int ac, char **av)
     ignore_action.sa_handler = SIG_IGN;
     sigemptyset(&ignore_action.sa_mask);
     sigaction(SIGPIPE, &ignore_action, NULL);
+
+    fprintf(stderr, "lauditd: ready to write changelogs from MDT %s to FIFO %s\n",
+            mdtname, fifopath);
 
     wfd = lauditd_openfifo(fifopath);
 
