@@ -25,6 +25,7 @@
 
 #include <errno.h>
 #include <assert.h>
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -199,6 +200,7 @@ int main(int ac, char **av)
     int                      batch_size = 1;
     char                     clid[64] = {0};
     char                     fifopath[PATH_MAX] = {0};
+    char                    *fifodir;
     struct stat              statbuf;
     long long                recpos = 0LL;
 
@@ -220,6 +222,7 @@ int main(int ac, char **av)
             case 'f':
                 strncpy(fifopath, optarg, sizeof(fifopath));
                 clid[sizeof(fifopath) - 1] = '\0';
+                fifodir = dirname(strdup(fifopath));
                 break;
             case '?':
                 usage();
@@ -236,6 +239,11 @@ int main(int ac, char **av)
         return 1;
     }
 
+    if (strlen(fifodir) == 0) {
+        fprintf(stderr, "Invalid FIFO directory path\n");
+        return 1;
+    }
+
     ac -= optind;
     av += optind;
 
@@ -245,6 +253,14 @@ int main(int ac, char **av)
     }
 
     mdtname = av[0];
+
+    /* Create directory if needed */
+    if ((mkdir(fifodir, 0755) < 0) && (errno != EEXIST)) {
+        rc = -errno;
+        fprintf(stderr, "lauditd: mkdir '%s' failed with error %d\n", fifodir, rc);
+        return 1;
+    }
+    free(fifodir);
 
     /* Initialize FIFO */
     if ((mkfifo(fifopath, 0644) < 0) && (errno != EEXIST)) {
