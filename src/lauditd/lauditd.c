@@ -47,7 +47,7 @@ enum lauditd_enqueue_status {
     LAUDITD_ENQUEUE_WRITER_FAILURE = 2      /* fifo writer failure (or EOF) */
 };
 
-static char Fifopath[PATH_MAX] = {0};
+static int TerminateSig;
 
 static void usage(void)
 {
@@ -56,27 +56,28 @@ static void usage(void)
 
 static void lauditd_sigterm(int signo)
 {
+    TerminateSig = 1;
+}
+
+static void lauditd_cleanup(const char *fifopath)
+{
     int rc;
-    rc = unlink(Fifopath);
+    rc = unlink(fifopath);
     if (!rc) {
-        fprintf(stderr, "lauditd: removed FIFO %s\n", Fifopath);
+        fprintf(stderr, "lauditd: removed FIFO %s\n", fifopath);
     } else {
-        fprintf(stderr, "lauditd: count not remove FIFO %s (%s)\n", Fifopath, strerror(errno));
+        fprintf(stderr, "lauditd: cannot remove FIFO %s (%s)\n", fifopath, strerror(errno));
     }
-    Fifopath[0] = '\0';
 }
 
 static int lauditd_openfifo(const char *fifopath)
 {
     int wfd;
 
-    if (!*fifopath)
-        exit(EXIT_SUCCESS);
-
     // Open FIFO for write only 
     wfd  = open(fifopath, O_WRONLY); 
     if (wfd < 0) {
-        if (errno == EINTR && !*fifopath) {
+        if (errno == EINTR && TerminateSig) {
             exit(EXIT_SUCCESS);
         } else {
             fprintf(stderr, "FATAL: fifo file %s cannot be opened (%s)\n", fifopath,
@@ -168,9 +169,10 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
     int                      rc;
     int                      status = LAUDITD_ENQUEUE_READER_FAILURE;
 
-    rc = llapi_changelog_start(&ctx, flags, device, *recpos);
+    rc = llapi_changelog_start(&ctx, flags, device, *recpos + 1);
     if (rc < 0) {
-        fprintf(stderr, "lauditd: llapi_changelog_start rc=%d\n", rc);
+        fprintf(stderr, "lauditd: llapi_changelog_start device=%s recid=%lld rc=%d (%s)\n",
+                device, *recpos + 1, rc, strerror(errno));
         goto exit_enqueue;
     }
 
@@ -193,6 +195,12 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
 
         *recpos = rec->cr_index;
 
+        rc = llapi_changelog_free(&rec);
+        if (rc < 0) {
+            fprintf(stderr, "lauditd: llapi_changelog_free rc=%d\n", rc);
+            break;
+        }
+
         if (++batch_count >= batch_size)
             break;
     }
@@ -204,7 +212,7 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
     rc = llapi_changelog_fini(&ctx);
     if (rc) {
         fprintf(stderr, "lauditd: llapi_changelog_fini rc=%d\n", rc);
-        status = LAUDITD_ENQUEUE_WRITER_FAILURE;
+        status = LAUDITD_ENQUEUE_READER_FAILURE;
     }
 
 exit_enqueue:
@@ -221,6 +229,7 @@ int main(int ac, char **av)
     int                      wfd;
     int                      batch_size = 1;
     char                     clid[64] = {0};
+    char                     fifopath[PATH_MAX] = {0};
     char                    *fifodir;
     struct stat              statbuf;
     long long                recpos = 0LL;
@@ -241,9 +250,9 @@ int main(int ac, char **av)
                 clid[sizeof(clid) - 1] = '\0';
                 break;
             case 'f':
-                strncpy(Fifopath, optarg, sizeof(Fifopath));
-                Fifopath[sizeof(Fifopath) - 1] = '\0';
-                fifodir = dirname(strdup(Fifopath));
+                strncpy(fifopath, optarg, sizeof(fifopath));
+                fifopath[sizeof(fifopath) - 1] = '\0';
+                fifodir = dirname(strdup(fifopath));
                 break;
             case '?':
                 usage();
@@ -255,7 +264,7 @@ int main(int ac, char **av)
         fprintf(stderr, "Missing changelog registration id (-u)\n");
         return 1;
     }
-    if (strlen(Fifopath) == 0) {
+    if (strlen(fifopath) == 0) {
         fprintf(stderr, "Missing FIFO file path (-f)\n");
         return 1;
     }
@@ -287,7 +296,7 @@ int main(int ac, char **av)
         return 1;
     }
 
-    /* Handle SIGTERM -- to clean named pipe on normal exit */
+    /* SIGTERM/SIGINT: clean named pipe on normal exit */
     memset(&term_action, 0, sizeof(term_action));
     term_action.sa_handler = lauditd_sigterm;
     sigemptyset(&term_action.sa_mask);
@@ -296,6 +305,13 @@ int main(int ac, char **av)
         rc = -errno;
         fprintf(stderr, "lauditd: cannot setup signal handler (%d): %s\n",
                 SIGTERM, strerror(-rc));
+        return 1;
+    }
+    rc = sigaction(SIGINT, &term_action, NULL);
+    if (rc) {
+        rc = -errno;
+        fprintf(stderr, "lauditd: cannot setup signal handler (%d): %s\n",
+                SIGINT, strerror(-rc));
         return 1;
     }
 
@@ -308,36 +324,46 @@ int main(int ac, char **av)
     free(fifodir);
 
     /* Initialize FIFO */
-    if ((mkfifo(Fifopath, 0644) < 0) && (errno != EEXIST)) {
+    if ((mkfifo(fifopath, 0644) < 0) && (errno != EEXIST)) {
         rc = -errno;
         fprintf(stderr, "lauditd: mkfifo failed with error %d\n", rc);
         return 1;
     }
     if (errno == EEXIST) {
-        if (stat(Fifopath, &statbuf) < 0) {
-            fprintf(stderr, "stat(%s) failed\n", Fifopath);
+        if (stat(fifopath, &statbuf) < 0) {
+            fprintf(stderr, "stat(%s) failed\n", fifopath);
             return 1;
         }
         if (!S_ISFIFO(statbuf.st_mode) ||
             ((statbuf.st_mode & 0777) != 0644)) {
                 fprintf(stderr, "lauditd: %s exists but is "
-                                "not a pipe or has a wrong mode", Fifopath); 
+                                "not a pipe or has a wrong mode", fifopath); 
             return 1;
         }
     }
 
     fprintf(stderr, "lauditd: ready to write changelogs from MDT %s to FIFO %s\n",
-            mdtname, Fifopath);
+            mdtname, fifopath);
 
-    wfd = lauditd_openfifo(Fifopath);
+    wfd = lauditd_openfifo(fifopath);
 
     while (1) {
         long long startrec = recpos;
 
+        if (TerminateSig) {
+            lauditd_cleanup(fifopath);
+            break;
+        }
+
         switch (lauditd_enqueue(wfd, mdtname, batch_size, &recpos)) {
 
             case LAUDITD_ENQUEUE_WRITER_FAILURE:
-                wfd = lauditd_openfifo(Fifopath);
+                close(wfd);
+		if (TerminateSig) {
+		    lauditd_cleanup(fifopath);
+		    break;
+		}
+                wfd = lauditd_openfifo(fifopath);
                 continue;
 
             case LAUDITD_ENQUEUE_READER_FAILURE:
@@ -348,14 +374,13 @@ int main(int ac, char **av)
                 break;
         }
 
-        if (recpos >= startrec) {
-            // clear read changelogs
+        if (recpos > startrec) {
+            // clear changelogs read
             rc = llapi_changelog_clear(mdtname, clid, recpos);
             if (rc < 0) {
                 fprintf(stderr, "lauditd: llapi_changelog_clear recpos=%lld rc=%d\n",
                         recpos, rc);
             }
-            recpos++;
         }
     }
 
