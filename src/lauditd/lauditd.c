@@ -62,11 +62,12 @@ static void lauditd_sigterm(int signo)
 static void lauditd_cleanup(const char *fifopath)
 {
     int rc;
+
     rc = unlink(fifopath);
     if (!rc) {
-        fprintf(stderr, "lauditd: removed FIFO %s\n", fifopath);
+        fprintf(stderr, "successfully removed FIFO %s\n", fifopath);
     } else {
-        fprintf(stderr, "lauditd: cannot remove FIFO %s (%s)\n", fifopath, strerror(errno));
+        fprintf(stderr, "cannot remove FIFO %s (%s)\n", fifopath, strerror(errno));
     }
 }
 
@@ -85,7 +86,7 @@ static int lauditd_openfifo(const char *fifopath)
             exit(EXIT_FAILURE);
         }
     }
-    fprintf(stderr, "lauditd: fifo connected to %s (fd=%d)\n", fifopath, wfd);
+    fprintf(stderr, "fifo successfully connected to %s (fd=%d)\n", fifopath, wfd);
     return wfd;
 }
 
@@ -191,7 +192,7 @@ static int lauditd_writerec(int wfd, const char *device, struct changelog_rec *r
     return (rc < 0) ? 1 : 0;
 
 error:
-    fprintf(stderr, "lauditd: line buffer overflow (%s)\n", strerror(errno));
+    fprintf(stderr, "FATAL: line buffer overflow (%s)\n", strerror(errno));
     exit(EXIT_FAILURE);
 }
 
@@ -207,7 +208,7 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
 
     rc = llapi_changelog_start(&ctx, flags, device, *recpos + 1);
     if (rc < 0) {
-        fprintf(stderr, "lauditd: llapi_changelog_start device=%s recid=%lld rc=%d (%s)\n",
+        fprintf(stderr, "llapi_changelog_start device=%s recid=%lld rc=%d (%s)\n",
                 device, *recpos + 1, rc, strerror(errno));
         goto exit_enqueue;
     }
@@ -217,14 +218,14 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
                                          CHANGELOG_EXTRA_FLAG_OMODE);
 
     if (rc < 0) {
-        fprintf(stderr, "lauditd: llapi_changelog_set_xflags rc=%d\n", rc);
+        fprintf(stderr, "llapi_changelog_set_xflags rc=%d\n", rc);
         goto exit_enqueue;
     }
 
     while ((rc = llapi_changelog_recv(ctx, &rec)) == 0) {
 
         if (lauditd_writerec(wfd, device, rec)) {
-            fprintf(stderr, "lauditd: fifo writer failure (%s)\n", strerror(errno));
+            fprintf(stderr, "fifo writer failure (%s)\n", strerror(errno));
             status = LAUDITD_ENQUEUE_WRITER_FAILURE;
             break;
         }
@@ -233,7 +234,7 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
 
         rc = llapi_changelog_free(&rec);
         if (rc < 0) {
-            fprintf(stderr, "lauditd: llapi_changelog_free rc=%d\n", rc);
+            fprintf(stderr, "llapi_changelog_free rc=%d\n", rc);
             break;
         }
 
@@ -247,7 +248,7 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
 
     rc = llapi_changelog_fini(&ctx);
     if (rc) {
-        fprintf(stderr, "lauditd: llapi_changelog_fini rc=%d\n", rc);
+        fprintf(stderr, "llapi_changelog_fini rc=%d\n", rc);
         status = LAUDITD_ENQUEUE_READER_FAILURE;
     }
 
@@ -327,7 +328,7 @@ int main(int ac, char **av)
     rc = sigaction(SIGPIPE, &ignore_action, NULL);
     if (rc) {
         rc = -errno;
-        fprintf(stderr, "lauditd: cannot setup signal handler (%d): %s\n",
+        fprintf(stderr, "cannot setup signal handler (%d): %s\n",
                 SIGPIPE, strerror(-rc));
         return 1;
     }
@@ -339,14 +340,14 @@ int main(int ac, char **av)
     rc = sigaction(SIGTERM, &term_action, NULL);
     if (rc) {
         rc = -errno;
-        fprintf(stderr, "lauditd: cannot setup signal handler (%d): %s\n",
+        fprintf(stderr, "cannot setup signal handler (%d): %s\n",
                 SIGTERM, strerror(-rc));
         return 1;
     }
     rc = sigaction(SIGINT, &term_action, NULL);
     if (rc) {
         rc = -errno;
-        fprintf(stderr, "lauditd: cannot setup signal handler (%d): %s\n",
+        fprintf(stderr, "cannot setup signal handler (%d): %s\n",
                 SIGINT, strerror(-rc));
         return 1;
     }
@@ -354,7 +355,7 @@ int main(int ac, char **av)
     /* Create directory if needed */
     if ((mkdir(fifodir, 0755) < 0) && (errno != EEXIST)) {
         rc = -errno;
-        fprintf(stderr, "lauditd: mkdir '%s' failed with error %d\n", fifodir, rc);
+        fprintf(stderr, "mkdir '%s' failed with error %d\n", fifodir, rc);
         return 1;
     }
     free(fifodir);
@@ -362,7 +363,7 @@ int main(int ac, char **av)
     /* Initialize FIFO */
     if ((mkfifo(fifopath, 0644) < 0) && (errno != EEXIST)) {
         rc = -errno;
-        fprintf(stderr, "lauditd: mkfifo failed with error %d\n", rc);
+        fprintf(stderr, "mkfifo failed with error %d\n", rc);
         return 1;
     }
     if (errno == EEXIST) {
@@ -372,13 +373,13 @@ int main(int ac, char **av)
         }
         if (!S_ISFIFO(statbuf.st_mode) ||
             ((statbuf.st_mode & 0777) != 0644)) {
-                fprintf(stderr, "lauditd: %s exists but is "
-                                "not a pipe or has a wrong mode", fifopath); 
+                fprintf(stderr, "%s exists but is not a pipe or has a wrong mode",
+                        fifopath); 
             return 1;
         }
     }
 
-    fprintf(stderr, "lauditd: ready to write changelogs from MDT %s to FIFO %s\n",
+    fprintf(stderr, "ready to write changelogs from MDT %s to FIFO %s\n",
             mdtname, fifopath);
 
     wfd = lauditd_openfifo(fifopath);
@@ -414,7 +415,7 @@ int main(int ac, char **av)
             // clear changelogs read
             rc = llapi_changelog_clear(mdtname, clid, recpos);
             if (rc < 0) {
-                fprintf(stderr, "lauditd: llapi_changelog_clear recpos=%lld rc=%d\n",
+                fprintf(stderr, "llapi_changelog_clear recpos=%lld rc=%d\n",
                         recpos, rc);
             }
         }
