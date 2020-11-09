@@ -24,7 +24,7 @@ and (atomically) write outputs to a named pipe (FIFO) using a key=value format
 suitable for log analysis software like Splunk:
 
 ```
-2020-11-05T11:08:58.998351225-0800 mdt=oak-MDT0002 id=89954723 type=CREAT flags=0x0 uid=231650 gid=99 target=[0x2f8000b442:0xcfd9:0x0] parent=[0x2f8000b458:0x4623:0x0] name="oligocalls_047_006.centr_evalknown.gz"
+2020-11-05T11:08:58.998351225-0800 mdt=fsname-MDT0002 id=89954723 type=CREAT flags=0x0 uid=231650 gid=99 target=[0x2f8000b442:0xcfd9:0x0] parent=[0x2f8000b458:0x4623:0x0] name="oligocalls_047_006.centr_evalknown.gz"
 ```
 
 Running lauditd
@@ -58,6 +58,29 @@ To start `lauditd`, use:
 To enable `lauditd` at boot time, use:
 
   $ systemctl enable lauditd@fsname-MDT0000
+
+
+Using lauditd with Splunk
+-------------------------
+
+`lauditd` can be used to feed Splunk, through the Splunk Universal Forwarder which
+has the ability to read FIFO queues. To do so, you will need to enable FIFO support
+in `$SPLUNK_HOME/etc/system/local/default-mode.conf`:
+
+   [pipeline:fifo]
+   disabled = false
+
+On the Splunk Indexer, you can use FIFO inputs like below:
+
+  [fifo:///run/lauditd/fsname-MDT0000.changelogs]
+  index = src_fsname_lustre_audit
+  #sourcetype=lauditd
+  disabled = 0
+  
+  [fifo:///run/lauditd/fsname-MDT0001.changelogs]
+  index = src_fsname_lustre_audit
+  #sourcetype=lauditd
+  disabled = 0
 
 
 Author
