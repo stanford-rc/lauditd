@@ -67,20 +67,24 @@ Using lauditd with Splunk
 has the ability to read FIFO queues. To do so, you will need to enable FIFO support
 in `$SPLUNK_HOME/etc/system/local/default-mode.conf`:
 
-   [pipeline:fifo]
-   disabled = false
+```
+[pipeline:fifo]
+disabled = false
+```
 
 On the Splunk Indexer, you can use FIFO inputs like below:
 
-  [fifo:///run/lauditd/fsname-MDT0000.changelogs]
-  index = src_fsname_lustre_audit
-  #sourcetype=lauditd
-  disabled = 0
-  
-  [fifo:///run/lauditd/fsname-MDT0001.changelogs]
-  index = src_fsname_lustre_audit
-  #sourcetype=lauditd
-  disabled = 0
+```
+[fifo:///run/lauditd/fsname-MDT0000.changelogs]
+index = src_fsname_lustre_audit
+#sourcetype=lauditd
+disabled = 0
+
+[fifo:///run/lauditd/fsname-MDT0001.changelogs]
+index = src_fsname_lustre_audit
+#sourcetype=lauditd
+disabled = 0
+```
 
 
 Author
