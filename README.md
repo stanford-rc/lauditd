@@ -9,9 +9,11 @@ Installation
 
 Building lauditd is relatively straightforward:
 
-  $ sh ./autogen.sh
-  $ ./configure
-  $ make
+```
+$ sh ./autogen.sh
+$ ./configure
+$ make
+```
 
 The "rpms" target allows to build RPM package.
 
@@ -34,30 +36,40 @@ Running lauditd
 command line. One lauditd daemon should be used per Lustre MDT. You will need
 to set up a Changelog reader ID dedicated to `lauditd`. On the MDS, run:
 
-  $ lctl --device fsname-MDT0002 changelog_register
-  fsname-MDT0002: Registered changelog userid 'cl2'
+```
+$ lctl --device fsname-MDT0002 changelog_register
+fsname-MDT0002: Registered changelog userid 'cl2'
+```
 
 `lauditd` should be run on a Lustre client with the filesystem you want to audit
 already mounted (read-only is supported).
 
 Example of invocation with FIFO `/run/lauditd/fsname-MDT0002.changelogs`:
 
-  $ lauditd -u cl2 -f /run/lauditd/fsname-MDT0002.changelogs -b 1000 fsname-MDT0002
+```
+$ lauditd -u cl2 -f /run/lauditd/fsname-MDT0002.changelogs -b 1000 fsname-MDT0002
+```
 
 You can test with:
 
-  $ cat /run/lauditd/fsname-MDT0002.changelogs
+```
+$ cat /run/lauditd/fsname-MDT0002.changelogs
+```
 
 For Linux systems using systemd, you can use the service unit file provided with
 configuration file located at `/etc/sysconfig/lauditd`.
 
 To start `lauditd`, use:
 
-  $ systemctl start lauditd@fsname-MDT0000
+```
+$ systemctl start lauditd@fsname-MDT0000
+```
 
 To enable `lauditd` at boot time, use:
 
-  $ systemctl enable lauditd@fsname-MDT0000
+```
+$ systemctl enable lauditd@fsname-MDT0000
+```
 
 
 Using lauditd with Splunk
