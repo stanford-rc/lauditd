@@ -96,6 +96,12 @@ static int lauditd_writerec(int wfd, const char *device, struct changelog_rec *r
     struct tm   ts;
     char        buf[32];
     char        tzbuf[8];
+    char       *linebufptr;
+    int         linebuflen;
+    char        linebuf[4096];
+
+    linebufptr = linebuf;
+    linebuflen = sizeof(linebuf);
 
     secs = rec->cr_time >> 30;
     localtime_r(&secs, &ts);
@@ -103,60 +109,90 @@ static int lauditd_writerec(int wfd, const char *device, struct changelog_rec *r
     strftime(buf, sizeof(buf), "%FT%T", &ts);
     strftime(tzbuf, sizeof(tzbuf), "%z", &ts);
 
-    rc = dprintf(wfd, "%s.%06d%s mdt=%s id=%llu type=%-5s flags=0x%x",
+    rc = snprintf(linebufptr, linebuflen, "%s.%06d%s mdt=%s id=%llu type=%-5s flags=0x%x",
                  buf, (int)(rec->cr_time & ((1 << 30) - 1)), tzbuf,
                  device, rec->cr_index, changelog_type2str(rec->cr_type),
                  rec->cr_flags & CLF_FLAGMASK);
-    if (rc < 0)
-        goto eof;
+    if (rc < 0 || rc >= linebuflen)
+        goto error;
+
+    linebufptr += rc;
+    linebuflen -= rc;
 
     if (rec->cr_flags & CLF_EXTRA_FLAGS) {
         struct changelog_ext_uidgid *uidgid = changelog_rec_uidgid(rec);;
-        rc = dprintf(wfd, " uid=%llu gid=%llu", uidgid->cr_uid, uidgid->cr_gid);
-        if (rc < 0)
-            goto eof;
+        rc = snprintf(linebufptr, linebuflen, " uid=%llu gid=%llu",
+                      uidgid->cr_uid, uidgid->cr_gid);
+        if (rc < 0 || rc >= linebuflen)
+            goto error;
+        linebufptr += rc;
+        linebuflen -= rc;
     }
 
     if (rec->cr_flags & CLF_JOBID) {
         const char *jobid = (const char *)changelog_rec_jobid(rec);
-        if (*jobid && dprintf(wfd, " j=%s", jobid) < 0)
-                goto eof;
+        if (*jobid) {
+            rc = snprintf(linebufptr, linebuflen, " j=%s", jobid);
+            if (rc < 0 || rc >= linebuflen)
+                goto error;
+            linebufptr += rc;
+            linebuflen -= rc;
+        }
     }
 
     if (rec->cr_flags & CLFE_NID) {
         struct changelog_ext_nid *nid = changelog_rec_nid(rec); 
         libcfs_nid2str_r(nid->cr_nid, buf);
-        if (dprintf(wfd, " nid=%s", buf) < 0)
-            goto eof;
+        rc = snprintf(linebufptr, linebuflen, " nid=%s", buf);
+        if (rc < 0 || rc >= linebuflen)
+            goto error;
+        linebufptr += rc;
+        linebuflen -= rc;
     }
 
-    if (dprintf(wfd, " target="DFID, PFID(&rec->cr_tfid)) < 0)
-        goto eof;
+    rc = snprintf(linebufptr, linebuflen, " target="DFID, PFID(&rec->cr_tfid));
+    if (rc < 0 || rc >= linebuflen)
+        goto error;
+    linebufptr += rc;
+    linebuflen -= rc;
 
     if (rec->cr_flags & CLF_RENAME) {
         struct changelog_ext_rename *rnm;
 
         rnm = changelog_rec_rename(rec);
-        if (!fid_is_zero(&rnm->cr_sfid))
-            rc = dprintf(wfd, " source="DFID" source_parent="DFID" source_name=\"%.*s\"",
+        if (!fid_is_zero(&rnm->cr_sfid)) {
+            rc = snprintf(linebufptr, linebuflen,
+                          " source="DFID" source_parent="DFID" source_name=\"%.*s\"",
                          PFID(&rnm->cr_sfid), PFID(&rnm->cr_spfid),
                          changelog_rec_snamelen(rec), changelog_rec_sname(rec));
-            if (rc < 0)
-                goto eof;
+            if (rc < 0 || rc >= linebuflen)
+                goto error;
+            linebufptr += rc;
+            linebuflen -= rc;
+        }
     }
 
     if (rec->cr_namelen) {
-        if (dprintf(wfd, " parent="DFID" name=\"%.*s\"", PFID(&rec->cr_pfid),
-                    rec->cr_namelen, changelog_rec_name(rec)) < 0)
-            goto eof;
+        rc = snprintf(linebufptr, linebuflen, " parent="DFID" name=\"%.*s\"",
+                      PFID(&rec->cr_pfid), rec->cr_namelen, changelog_rec_name(rec));
+        if (rc < 0 || rc >= linebuflen)
+            goto error;
+        linebufptr += rc;
+        linebuflen -= rc;
     }
 
-    if (dprintf(wfd, "\n") < 0)
-        goto eof;
+    rc = snprintf(linebufptr, linebuflen, "\n");
+    if (rc < 0 || rc >= linebuflen)
+        goto error;
 
-    return 0;
-eof:
-    return 1;
+    //assert(strlen(linebuf) == sizeof(linebuf) - linebuflen + 1);
+
+    rc = write(wfd, linebuf, sizeof(linebuf) - linebuflen + 1);
+    return (rc < 0) ? 1 : 0;
+
+error:
+    fprintf(stderr, "lauditd: line buffer overflow (%s)\n", strerror(errno));
+    exit(EXIT_FAILURE);
 }
 
 static int lauditd_enqueue(int wfd, const char *device, int batch_size, long long *recpos)
@@ -359,10 +395,10 @@ int main(int ac, char **av)
 
             case LAUDITD_ENQUEUE_WRITER_FAILURE:
                 close(wfd);
-		if (TerminateSig) {
-		    lauditd_cleanup(fifopath);
-		    break;
-		}
+                if (TerminateSig) {
+                    lauditd_cleanup(fifopath);
+                    return 0;
+                }
                 wfd = lauditd_openfifo(fifopath);
                 continue;
 
