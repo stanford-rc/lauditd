@@ -20,7 +20,7 @@ Output format
 -------------
 
 `lauditd` reads Lustre Changelogs from Lustre directly using the liblustreapi
-and (automatically) write outputs to a named pipe (FIFO) using a key=value format
+and (atomically) write outputs to a named pipe (FIFO) using a key=value format
 suitable for log analysis software like Splunk:
 
 ```
