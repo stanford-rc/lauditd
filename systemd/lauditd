@@ -5,3 +5,9 @@ LAUDITD_CONSUMERID=cl2
 
 # Max number of processed changelog entries before lauditd will clear them
 LAUDITD_BATCHSIZE=1000
+
+# Force lauditd to ignore the following comma separated list of changelogs
+# record types.
+# Use Lustre's changelog_mask instead if you can. This capability was added
+# to lauditd because such mask is common to all consumers.
+LAUDITD_IGNORE_TYPES=CLOSE,MARK

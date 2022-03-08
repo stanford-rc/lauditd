@@ -52,5 +52,8 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 
 %changelog
+* Sun Mar  6 2022 Stephane Thiell <sthiell@stanford.edu> 0.2
+- Update to 0.2 (adding support for ignored record types)
+
 * Wed Nov  4 2020 Stephane Thiell <sthiell@stanford.edu> 0.1
 - Initial import

@@ -34,12 +34,16 @@
 #include <stdbool.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <search.h>
 
 #include <lustre/lustreapi.h>
+
 
 #ifndef LPX64
 # define LPX64   "%#llx"
 #endif
+
+#define IGNORE_TYPES_H_MAX 30               /* > max number of changelogs types */
 
 enum lauditd_enqueue_status {
     LAUDITD_ENQUEUE_SUCCESS = 0,            /* read/write success and more to process */
@@ -51,7 +55,7 @@ static int TerminateSig;
 
 static void usage(void)
 {
-    fprintf(stderr, "Usage: lauditd [-u cl1] [-f fifo_path] [-b batch_size] <mdtname>\n");
+    fprintf(stderr, "Usage: lauditd [-u cl1] [-f fifo_path] [-b batch_size] [-i ignore_types] <mdtname>\n");
 }
 
 static void lauditd_sigterm(int signo)
@@ -205,6 +209,7 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
     struct changelog_rec    *rec;
     int                      rc;
     int                      status = LAUDITD_ENQUEUE_READER_FAILURE;
+    ENTRY                    e;
 
     rc = llapi_changelog_start(&ctx, flags, device, *recpos + 1);
     if (rc < 0) {
@@ -224,7 +229,9 @@ static int lauditd_enqueue(int wfd, const char *device, int batch_size, long lon
 
     while ((rc = llapi_changelog_recv(ctx, &rec)) == 0) {
 
-        if (lauditd_writerec(wfd, device, rec)) {
+        e.key = (char *)changelog_type2str(rec->cr_type);
+
+        if (!hsearch(e, FIND) && lauditd_writerec(wfd, device, rec)) {
             fprintf(stderr, "fifo writer failure (%s)\n", strerror(errno));
             status = LAUDITD_ENQUEUE_WRITER_FAILURE;
             break;
@@ -268,6 +275,7 @@ int main(int ac, char **av)
     char                     clid[64] = {0};
     char                     fifopath[PATH_MAX] = {0};
     char                    *fifodir;
+    char                    *p;
     struct stat              statbuf;
     long long                recpos = 0LL;
 
@@ -276,8 +284,13 @@ int main(int ac, char **av)
         return 1;
     }
 
-    // -u cl1 -f pipefile -b 1000
-    while ((c = getopt(ac, av, "b:u:f:")) != -1) {
+    if (!hcreate(IGNORE_TYPES_H_MAX)) {
+        fprintf(stderr, "hcreate() failed: %s\n", strerror(errno));
+        return 1;
+    }
+
+    // -u cl1 -f pipefile -b 1000 -i CLOSE,MASK
+    while ((c = getopt(ac, av, "b:u:f:i:")) != -1) {
         switch (c) {
             case 'b':
                 batch_size = atoi(optarg);
@@ -290,6 +303,20 @@ int main(int ac, char **av)
                 strncpy(fifopath, optarg, sizeof(fifopath));
                 fifopath[sizeof(fifopath) - 1] = '\0';
                 fifodir = dirname(strdup(fifopath));
+                break;
+            case 'i':
+                optarg = strdup(optarg);
+                for (p = strtok(optarg,","); p != NULL; p = strtok (NULL, ",")) {
+                    ENTRY e = {
+                        .key = strdup(p),
+                        .data = NULL
+                    };
+                    if (hsearch(e, ENTER) == NULL) {
+			fprintf(stderr, "hsearch() failed: %s\n", strerror(errno));
+			return 1;
+                    }
+                    fprintf(stderr, "ignoring record type %s\n", p);
+                }
                 break;
             case '?':
                 usage();

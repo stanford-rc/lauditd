@@ -4,9 +4,10 @@ Description=Lustre Audit Daemon for %i
 [Service]
 Environment="LAUDITD_CONSUMERID=cl1"
 Environment="LAUDITD_BATCHSIZE=1000"
+Environment="LAUDITD_IGNORE_TYPES="
 EnvironmentFile=-/etc/sysconfig/lauditd
 EnvironmentFile=-/etc/sysconfig/lauditd.%i
-ExecStart=/usr/sbin/lauditd -u $LAUDITD_CONSUMERID -f /run/lauditd/%i.changelogs -b $LAUDITD_BATCHSIZE %i
+ExecStart=/usr/sbin/lauditd -u $LAUDITD_CONSUMERID -f /run/lauditd/%i.changelogs -b $LAUDITD_BATCHSIZE -i "$LAUDITD_IGNORE_TYPES" %i
 
 [Install]
 WantedBy=multi-user.target

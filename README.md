@@ -47,8 +47,11 @@ already mounted (read-only is supported).
 Example of invocation with FIFO `/run/lauditd/fsname-MDT0002.changelogs`:
 
 ```
-$ lauditd -u cl2 -f /run/lauditd/fsname-MDT0002.changelogs -b 1000 fsname-MDT0002
+$ lauditd -u cl2 -f /run/lauditd/fsname-MDT0002.changelogs -b 1000 -i CLOSE,MARK fsname-MDT0002
 ```
+
+The option `-i` allows you to ignore a list of changelog record types. Use Lustre's `changelog_mask` instead if you can.
+This capability was added to lauditd because such mask is common to all consumers as of Lustre 2.12.
 
 You can test with:
 
