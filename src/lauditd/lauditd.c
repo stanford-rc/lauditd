@@ -137,7 +137,7 @@ static int lauditd_writerec(int wfd, const char *device, struct changelog_rec *r
     if (rec->cr_flags & CLF_JOBID) {
         const char *jobid = (const char *)changelog_rec_jobid(rec);
         if (*jobid) {
-            rc = snprintf(linebufptr, linebuflen, " j=%s", jobid);
+            rc = snprintf(linebufptr, linebuflen, " jobid=%s", jobid);
             if (rc < 0 || rc >= linebuflen)
                 goto error;
             linebufptr += rc;
