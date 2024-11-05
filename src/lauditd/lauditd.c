@@ -36,6 +36,7 @@
 #include <fcntl.h>
 #include <search.h>
 
+#include <linux/lnet/nidstr.h>
 #include <lustre/lustreapi.h>
 
 
@@ -147,7 +148,7 @@ static int lauditd_writerec(int wfd, const char *device, struct changelog_rec *r
 
     if (rec->cr_flags & CLFE_NID) {
         struct changelog_ext_nid *nid = changelog_rec_nid(rec); 
-        libcfs_nid2str_r(nid->cr_nid, buf);
+        libcfs_nid2str_r(nid->cr_nid, buf, sizeof(buf));
         rc = snprintf(linebufptr, linebuflen, " nid=%s", buf);
         if (rc < 0 || rc >= linebuflen)
             goto error;
