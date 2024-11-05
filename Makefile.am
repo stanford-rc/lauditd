@@ -10,8 +10,7 @@ new: clean all
 rpms: lauditd.spec dist
 	mkdir -p $(rpm_dir)/BUILD $(rpm_dir)/SPECS $(rpm_dir)/SRPMS $(rpm_dir)/RPMS \
 	&& rpmbuild $(rpmbuild_opt) --define="_topdir $(rpm_dir)" \
-		--define="purpose $(purpose)" --define="_prefix $(prefix)" \
-		-ta $(distdir).tar.gz \
+		--define="_prefix $(prefix)" -ta $(distdir).tar.gz \
 	&& echo "RPMs successfully generated in $(rpm_dir)"
 
 rpm: lauditd.spec dist
